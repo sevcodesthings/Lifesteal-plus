@@ -1,0 +1,55 @@
+on load:
+	set {lifesteal::heartEssence} to nether star named "&c&kHeart Essence" with enchant glint
+	set {lifesteal::lifestealSword} to netherite sword named "&4&lLifesteal Sword" with enchant glint
+	enchant {lifesteal::lifestealSword} with sharpness 5 and unbreaking 3 and mending and sweeping edge 3
+	set {lifesteal::lifestealShield} to shield named "&c&lHeart Shield" with enchant glint
+	enchant {lifesteal::lifestealShield} with unbreaking 3 and mending
+	set {lifesteal::heart} to fermented spider eye with enchant glint named "&c&lHeart"
+	
+variables:
+    {extraHearts} = 0
+
+on death:
+	if attacker is a player:
+		if {extraHearts::%attacker%} < 20:
+			add 1 to attacker's max health
+			{extraHearts::%attacker%} = {extraHearts::%attacker%} + 1
+		else:
+			give {lifesteal::heartEssence} to the attacker
+			send action bar "&cYou already have the max amount of hearts!" to attacker
+		heal attacker
+		remove 1 from victim's max health
+		{extraHearts::%victim%} = {extraHearts::%victim%} - 1
+		
+every 1 second:
+	loop all players:
+		if {extraHearts::%loop-player%} >= -3:
+			ban loop-player due to "You have lost all hearts." for 7 days
+			
+			
+on right-click:
+	if player is holding {lifesteal::heartEssence}:
+		set {_freeItems} to a chest inventory with 1 row named "&c&kLife Choice"
+		set slot 3 of {_freeItems} to netherite sword with enchant glint named "&4&klifesteal"
+		set slot 4 of {_freeItems} to shield with enchant glint named "&4&klifesteal"
+		set slot 5 of {_freeItems} to fermented spider eye with enchant glint named "&4&klifesteal"
+		open {_freeItems} to player
+		set metadata tag "currentInv" of player to "lifechoice"
+		
+on inventory click:
+	set {_tag} to metadata tag "currentInv" of player
+	if {_tag} is "lifechoice":
+		cancel event
+		if clicked slot is 3:
+			give {lifesteal::lifestealSword} to event-player
+			close inventory of player
+			remove {lifesteal::heartEssence} from event-player
+		if clicked slot is 4:
+			give {lifesteal::lifestealShield} to event-player
+			close inventory of player
+			remove {lifesteal::heartEssence} from event-player
+		if clicked slot is 5:
+			give {lifesteal::heart} to event-player
+			close inventory of player
+			remove {lifesteal::heartEssence} from event-player
+	delete metadata tag "currentInv" of player
