@@ -1,31 +1,52 @@
 on load:
-	set {lifesteal::heartEssence} to nether star named "&c&kHeart Essence" with enchant glint
-	set {lifesteal::lifestealSword} to netherite sword named "&4&lLifesteal Sword" with enchant glint
-	enchant {lifesteal::lifestealSword} with sharpness 5 and unbreaking 3 and mending and sweeping edge 3
-	set {lifesteal::lifestealShield} to shield named "&c&lHeart Shield" with enchant glint
-	enchant {lifesteal::lifestealShield} with unbreaking 3 and mending
-	set {lifesteal::heart} to fermented spider eye with enchant glint named "&c&lHeart"
+	set {lifesteal::heartEssence} to nether star named "&4&kHeart Essence" with enchant glint
+	set the maximum stack size of {lifesteal::heartEssence} to 1
+	set {lifesteal::lifestealSword} to unbreakable netherite sword named "&4&lLifesteal Sword" with enchant glint
+	enchant {lifesteal::lifestealSword} with sharpness 5 and mending and sweeping edge 3
+	set {lifesteal::heartShield} to shield named "&4&lHeart Shield" with enchant glint
+	enchant {lifesteal::heartShield} with unbreaking 3 and mending
+	set {lifesteal::heart} to fermented spider eye with enchant glint named "&4&lHeart"
+	set the maximum stack size of {lifesteal::heart} to 1
 	
+	register shaped recipe:
+		id: "lifesteal:heartessence"
+		result: {lifesteal::heartEssence}
+		shape: "aaa", "aba", "aaa"
+		group: "lifesteal"
+		category: "misc"
+		ingredients:
+			set ingredient of "a" to {lifesteal::heart}
+			set ingredient of "b" to heavy core
+			
+			
 variables:
-    {extraHearts} = 0
-
+	{heartEffected} = " "
+	
 on death:
 	if attacker is a player:
-		if {extraHearts::%attacker%} < 20:
+		set {_maxHealth} to attacker's max health
+		if {_maxHealth} < 20:
 			add 1 to attacker's max health
-			{extraHearts::%attacker%} = {extraHearts::%attacker%} + 1
 		else:
-			give {lifesteal::heartEssence} to the attacker
-			send action bar "&cYou already have the max amount of hearts!" to attacker
+			give {lifesteal::heart} to the attacker
+			send action bar "&c&lYou already have the max amount of hearts!" to attacker
+			play sound "entity.experience_orb.pickup" to attacker
+		if attacker is holding {lifesteal::lifestealSword}:
+			if {_maxHealth} < 20:
+				add 1 to attacker's max health
+			else:
+				give {lifesteal::heart} to attacker
+				send action bar "&c&lYou already have the max amount of hearts!" to attacker
 		heal attacker
 		remove 1 from victim's max health
-		{extraHearts::%victim%} = {extraHearts::%victim%} - 1
 		
 every 1 second:
 	loop all players:
-		if {extraHearts::%loop-player%} >= -3:
-			ban loop-player due to "You have lost all hearts." for 7 days
-			
+		if loop-player's max health = 0:
+			ban loop-player due to "You have lost all of your hearts." for 7 days
+		if loop-player's max health < 1:
+			if loop-player's max health != 0:
+				set loop-player's max health to 1			
 			
 on right-click:
 	if player is holding {lifesteal::heartEssence}:
@@ -35,6 +56,29 @@ on right-click:
 		set slot 5 of {_freeItems} to fermented spider eye with enchant glint named "&4&klifesteal"
 		open {_freeItems} to player
 		set metadata tag "currentInv" of player to "lifechoice"
+	else if player is holding {lifesteal::heart}:
+		set {_maxHealth} to player's max health
+		if {_maxHealth} < 20:
+			add 1 to player's max health
+			send action bar "&a&lAdded 1 heart to your max health!" to player
+			play sound "entity.experience_orb.pickup" to player
+			remove 1 of {lifesteal::heart} from player
+		else:
+			send action bar "&c&lYou can't use this item!" to player
+			play sound "entity.experience_orb.pickup" to player
+	else if player is holding {lifesteal::heartShield}:
+		send "&c&lActivated &2&lStarvation!" to player
+		play sound "block.anvil.land" to player
+		set {_affected::*} to players in radius 15 of player
+		apply darkness 1 to {_affected::*} for 10 seconds
+		set {heartEffected::%{_affected::*}%} to 1
+		wait 5 seconds
+		set {heartEffected::%{_affected::*}%} to " "
+		
+on eat:
+	if {heartEffected::%player%} = 1:
+		cancel event
+		
 		
 on inventory click:
 	set {_tag} to metadata tag "currentInv" of player
@@ -53,3 +97,27 @@ on inventory click:
 			close inventory of player
 			remove {lifesteal::heartEssence} from event-player
 	delete metadata tag "currentInv" of player
+	
+	
+## Commands
+command /withdraw <integer>:
+	trigger:
+		set {totalHearts} to player's max health
+		send "%{totalHearts}%" to console
+		if arg-1 > {totalHearts}:
+			send message "&c&lYou don't have enough hearts for that!" to player
+			play sound "entity.experience_orb.pickup" to player
+		else:
+			remove arg-1 from player's max health
+			give arg-1 of {lifesteal::heart} to player
+			send message "&a&lWithdrew %arg-1% hearts!" to player
+			play sound "entity.experience_orb.pickup" to player
+		
+command /resethearts <offlineplayer>:
+	permission: op
+	trigger:
+		set arg-1's max health to 10
+		send message "&c&lYour hearts have been reset back to normal by an operator." to arg-1
+		play sound "entity.experience_orb.pickup" to arg-1
+		send message "&a&lSuccessfully reseted %arg-1%'s hearts!" to player
+		play sound "entity.experience_orb.pickup" to player
