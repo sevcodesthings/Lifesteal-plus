@@ -1,12 +1,25 @@
+# [Variables]
+
 on load:
+	## heart essence
 	set {lifesteal::heartEssence} to nether star named "&4&kHeart Essence" with enchant glint
 	set the maximum stack size of {lifesteal::heartEssence} to 1
+	## lifesteal sword
 	set {lifesteal::lifestealSword} to unbreakable netherite sword named "&4&lLifesteal Sword" with enchant glint
 	enchant {lifesteal::lifestealSword} with sharpness 5 and mending and sweeping edge 3
-	set {lifesteal::heartShield} to shield named "&4&lHeart Shield" with enchant glint
+	## heart shield
+	set {lifesteal::heartShield} to unbreakable shield named "&4&lHeart Shield" with enchant glint
 	enchant {lifesteal::heartShield} with unbreaking 3 and mending
+	## heart chestplate
+	set {lifesteal::heartchest} to unbreakable netherite chestplate named "&c&lHeart Chestplate"
+	enchant {lifesteal::heartchest} with protection 5 and mending
+	add armor trim from redstone_material and sentry_pattern to armor trim of {lifesteal::heartchest}
+	## heart
 	set {lifesteal::heart} to fermented spider eye with enchant glint named "&4&lHeart"
 	set the maximum stack size of {lifesteal::heart} to 1
+	## misc.
+	set {HSCooldown::%player%} to 0
+	set {heartEffected} to " "
 	
 	register shaped recipe:
 		id: "lifesteal:heartessence"
@@ -17,11 +30,33 @@ on load:
 		ingredients:
 			set ingredient of "a" to {lifesteal::heart}
 			set ingredient of "b" to heavy core
+
+
+# [Time-based checks]
+
+every 1 second:
+	loop all players:
+		if loop-player's max health = 0:
+			ban loop-player due to "You have lost all of your hearts." for 7 days
+		if loop-player's max health < 1:
+			if loop-player's max health != 0:
+				set loop-player's max health to 1
+				
+every 10 ticks:
+	loop all players:
+		if loop-player is holding {lifesteal::heartShield}:
+			if {HSCooldown::%loop-player%} = 0:
+				send action bar "&a&lReady | Right Click" to loop-player
+			else:
+				send action bar "&c&l%{HSCooldown::%loop-player%}%" to loop-player
 			
-			
-variables:
-	{heartEffected} = " "
-	
+every 1 second:
+	loop all players:
+		if {HSCooldown::%loop-player%} > 0:
+			set {HSCooldown::%loop-player%} to {HSCooldown::%loop-player%} - 1
+				
+# [On-action events]
+
 on death:
 	if attacker is a player:
 		set {_maxHealth} to attacker's max health
@@ -39,27 +74,20 @@ on death:
 				send action bar "&c&lYou already have the max amount of hearts!" to attacker
 		heal attacker
 		remove 1 from victim's max health
-		
-every 1 second:
-	loop all players:
-		if loop-player's max health = 0:
-			ban loop-player due to "You have lost all of your hearts." for 7 days
-		if loop-player's max health < 1:
-			if loop-player's max health != 0:
-				set loop-player's max health to 1			
 			
 on right-click:
 	if player is holding {lifesteal::heartEssence}:
 		set {_freeItems} to a chest inventory with 1 row named "&c&kLife Choice"
 		set slot 3 of {_freeItems} to netherite sword with enchant glint named "&4&klifesteal"
 		set slot 4 of {_freeItems} to shield with enchant glint named "&4&klifesteal"
-		set slot 5 of {_freeItems} to fermented spider eye with enchant glint named "&4&klifesteal"
+		set slot 5 of {_freeItems} to netherite chestplate with enchant glint named "&4&klifesteal"
 		open {_freeItems} to player
 		set metadata tag "currentInv" of player to "lifechoice"
 	else if player is holding {lifesteal::heart}:
 		set {_maxHealth} to player's max health
 		if {_maxHealth} < 20:
 			add 1 to player's max health
+			heal player
 			send action bar "&a&lAdded 1 heart to your max health!" to player
 			play sound "entity.experience_orb.pickup" to player
 			remove 1 of {lifesteal::heart} from player
@@ -67,18 +95,30 @@ on right-click:
 			send action bar "&c&lYou can't use this item!" to player
 			play sound "entity.experience_orb.pickup" to player
 	else if player is holding {lifesteal::heartShield}:
-		send "&c&lActivated &2&lStarvation!" to player
-		play sound "block.anvil.land" to player
-		set {_affected::*} to players in radius 15 of player
-		apply darkness 1 to {_affected::*} for 10 seconds
-		set {heartEffected::%{_affected::*}%} to 1
-		wait 5 seconds
-		set {heartEffected::%{_affected::*}%} to " "
-		
-on eat:
+		if {HSCooldown::%player%} = 0:
+			set {HSCooldown::%player%} to 60
+			send "%player% used Heart Shield's ability: %{HSCooldown::%player%}% left" to console
+			send "&c&lActivated &2&lStarvation!" to player
+			play sound "block.anvil.land" to player
+			set {_affected::*} to all players in radius 10 of player
+			apply darkness 1 to {_affected::*} for 10 seconds
+			remove darkness 1 from player
+			set {heartEffected::%{_affected::*}%} to 1
+			set {shieldTimer} to 10
+			loop 10 times:
+				wait 1 second
+				set {shieldTimer} to {shieldTimer} - 1
+			set {heartEffected::%{_affected::*}%} to " "
+		else:
+			send action bar "&c&lYou are on cooldown!" to player
+			send "%player% attempted to use Heart Shield whilst on cooldown: %{HSCooldown::%player%}% left" to console
+			play sound "entity.villager.no" to player
+			
+on player consume:
 	if {heartEffected::%player%} = 1:
 		cancel event
-		
+		send action bar "&4&lYou are affected by the Heart Shield! You cannot eat for %{shieldTimer}% seconds."
+		play sound "entity.villager.no" to player
 		
 on inventory click:
 	set {_tag} to metadata tag "currentInv" of player
@@ -88,18 +128,25 @@ on inventory click:
 			give {lifesteal::lifestealSword} to event-player
 			close inventory of player
 			remove {lifesteal::heartEssence} from event-player
+			play sound "block.amethyst_block.resonate" to event-player
+			play sound "block.amethyst_block.resonate" to event-player
 		if clicked slot is 4:
 			give {lifesteal::lifestealShield} to event-player
 			close inventory of player
 			remove {lifesteal::heartEssence} from event-player
+			play sound "block.amethyst_block.resonate" to event-player
+			play sound "block.amethyst_block.resonate" to event-player
 		if clicked slot is 5:
-			give {lifesteal::heart} to event-player
+			give {lifesteal::heartchest} to event-player
 			close inventory of player
 			remove {lifesteal::heartEssence} from event-player
+			play sound "block.amethyst_block.resonate" to event-player
+			play sound "block.amethyst_block.resonate" to event-player
 	delete metadata tag "currentInv" of player
 	
 	
-## Commands
+# [Commands]
+
 command /withdraw <integer>:
 	trigger:
 		set {totalHearts} to player's max health
@@ -109,7 +156,8 @@ command /withdraw <integer>:
 			play sound "entity.experience_orb.pickup" to player
 		else:
 			remove arg-1 from player's max health
-			give arg-1 of {lifesteal::heart} to player
+			set {_arg1num} to arg-1
+			give {_arg1num} of {lifesteal::heart} to player
 			send message "&a&lWithdrew %arg-1% hearts!" to player
 			play sound "entity.experience_orb.pickup" to player
 		
@@ -121,3 +169,36 @@ command /resethearts <offlineplayer>:
 		play sound "entity.experience_orb.pickup" to arg-1
 		send message "&a&lSuccessfully reseted %arg-1%'s hearts!" to player
 		play sound "entity.experience_orb.pickup" to player
+		
+command /sethearts <offlineplayer> <number>:
+	permission: op
+	trigger:
+		set arg-1's max health to arg-2
+		send message "&c&lYour heartcount has been set to %arg-2% by an operator." to arg-1
+		heal arg-1
+		play sound "block.anvil.land" to player
+		send message "&a&lSuccessfully set %arg-1%'s heart count to %arg-2%!"
+		play sound "entity.experience_orb.pickup" to player
+		
+command /lsgive <offlineplayer> <string>:
+	permission: op
+	trigger:
+		set {_arg1person} to arg-1
+		if arg-2 is "lifesteal_sword":
+			give {lifesteal::lifestealSword} to {_arg1person}
+			send "&a&lSuccessfully gave %arg-1% 1 of %arg-2%." to player
+			play sound "entity.experience_orb.pickup" to player
+		else if arg-2 is "heart_shield":
+			give {lifesteal::heartShield} to {_arg1person}
+			send "&a&lSuccessfully gave %arg-1% 1 of %arg-2%." to player
+			play sound "entity.experience_orb.pickup" to player
+		else if arg-2 is "heart_chestplate":
+			give {lifesteal::heartchest} to {_arg1person}
+			send "&a&lSuccessfully gave %arg-1% 1 of %arg-2%." to player
+			play sound "entity.experience_orb.pickup" to player
+		else:
+			send "&c&lPlease use a valid Lifesteal+ item ID!" to player
+			play sound "entity.villager.no" to player
+			
+on tab complete of "/lsgive":
+	set tab completions for position 2 to "lifesteal_sword", "heart_shield", and "heart_chestplate"
