@@ -18,12 +18,7 @@ Allows operators to give themselves, or any other players, any of the Lifesteal+
 
 ## ※ | Recipes
 There is only one recipe in this plugin, which is for the Heart Essence
-Recipe: heart, heart, heart, heart, heavy core, heart, heart, heart, heart
-
-heavy = heavy core:
-[heart] [heart] [heart]
-[heart] [heavy] [heart]
-[heart] [heart] [heart]
+Recipe: [heart], [heart], [heart], [heart], [heavy core], [heart], [heart], [heart], [heart]
 
 ## ◈ | Item functionality and how to obtain them
 When right-clicking a Heart Essence, you get to choose between 3 different items:
